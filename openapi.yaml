@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Borzoifit Calendar Integration API
-  description: API для интеграции с Google Calendar, реализованное в микросервисе borzoifit-calendar.
-  version: 1.0.0
+  description: API для интеграции с Google Calendar и Yandex Calendar, реализованное в микросервисе borzoifit-calendar.
+  version: 1.1.0
 
 servers:
   - url: https://api.borzoifit.ru/calendar
@@ -42,10 +42,43 @@ paths:
         '400':
           description: Ошибка авторизации
 
+  /auth/yandex:
+    get:
+      summary: Получить URL для авторизации Yandex OAuth 2.0
+      description: Возвращает ссылку на авторизацию в Yandex, на которую клиент должен перенаправить пользователя.
+      responses:
+        '200':
+          description: Успешно возвращён URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  auth_url:
+                    type: string
+                    example: "https://oauth.yandex.ru/authorize?response_type=code&client_id=..."
+
+  /auth/yandex/callback:
+    get:
+      summary: Обработать OAuth callback от Yandex
+      description: Принимает код авторизации и сохраняет access_token / refresh_token.
+      parameters:
+        - in: query
+          name: code
+          schema:
+            type: string
+          required: true
+          description: Авторизационный код от Yandex
+      responses:
+        '200':
+          description: Авторизация успешна
+        '400':
+          description: Ошибка авторизации
+
   /events:
     post:
       summary: Создать событие в календаре пользователя
-      description: Создаёт новое событие в Google Calendar, используя access_token пользователя.
+      description: Создаёт новое событие в Google Calendar или Yandex Calendar, используя access_token пользователя.
       requestBody:
         required: true
         content:
@@ -73,7 +106,14 @@ paths:
           required: true
           schema:
             type: string
-          description: Идентификатор события Google Calendar
+          description: Идентификатор события календаря
+        - in: query
+          name: calendarType
+          schema:
+            type: string
+            enum: [google, yandex]
+          required: true
+          description: Тип календаря, в котором нужно удалить событие
       responses:
         '200':
           description: Событие удалено
@@ -91,6 +131,7 @@ components:
         - summary
         - startTime
         - endTime
+        - calendarType
       properties:
         userId:
           type: string
@@ -114,8 +155,8 @@ components:
           example: "2025-05-10T15:00:00Z"
         calendarType:
           type: string
-          enum: [google]
-          example: "google"
+          enum: [google, yandex]
+          example: "yandex"
 
     EventResponse:
       type: object
@@ -125,14 +166,13 @@ components:
           example: "abcdef123456"
         htmlLink:
           type: string
-          example: "https://calendar.google.com/event?eid=abcdef123456"
+          example: "https://calendar.yandex.ru/event?eid=abcdef123456"
 
-security:
-  - bearerAuth: []
-
-components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
+security:
+  - bearerAuth: []
