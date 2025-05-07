@@ -1,0 +1,138 @@
+openapi: 3.0.3
+info:
+  title: Borzoifit Calendar Integration API
+  description: API для интеграции с Google Calendar, реализованное в микросервисе borzoifit-calendar.
+  version: 1.0.0
+
+servers:
+  - url: https://api.borzoifit.ru/calendar
+    description: Продакшн сервер
+
+paths:
+  /auth/google:
+    get:
+      summary: Получить URL для авторизации Google OAuth 2.0
+      description: Возвращает ссылку на авторизацию в Google, на которую клиент должен перенаправить пользователя.
+      responses:
+        '200':
+          description: Успешно возвращён URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  auth_url:
+                    type: string
+                    example: "https://accounts.google.com/o/oauth2/auth?client_id=..."
+
+  /auth/google/callback:
+    get:
+      summary: Обработать OAuth callback от Google
+      description: Принимает код авторизации и сохраняет access_token / refresh_token.
+      parameters:
+        - in: query
+          name: code
+          schema:
+            type: string
+          required: true
+          description: Авторизационный код от Google
+      responses:
+        '200':
+          description: Авторизация успешна
+        '400':
+          description: Ошибка авторизации
+
+  /events:
+    post:
+      summary: Создать событие в календаре пользователя
+      description: Создаёт новое событие в Google Calendar, используя access_token пользователя.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventCreateRequest'
+      responses:
+        '201':
+          description: Событие успешно создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+        '401':
+          description: Неавторизован
+        '500':
+          description: Внутренняя ошибка сервера
+
+  /events/{eventId}:
+    delete:
+      summary: Удалить событие из календаря
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema:
+            type: string
+          description: Идентификатор события Google Calendar
+      responses:
+        '200':
+          description: Событие удалено
+        '404':
+          description: Событие не найдено
+        '500':
+          description: Внутренняя ошибка
+
+components:
+  schemas:
+    EventCreateRequest:
+      type: object
+      required:
+        - userId
+        - summary
+        - startTime
+        - endTime
+      properties:
+        userId:
+          type: string
+          example: "123456"
+        summary:
+          type: string
+          example: "Персональная тренировка"
+        description:
+          type: string
+          example: "Зал №2, тренер Иванов"
+        location:
+          type: string
+          example: "Borzoifit, ул. Ленина 10"
+        startTime:
+          type: string
+          format: date-time
+          example: "2025-05-10T14:00:00Z"
+        endTime:
+          type: string
+          format: date-time
+          example: "2025-05-10T15:00:00Z"
+        calendarType:
+          type: string
+          enum: [google]
+          example: "google"
+
+    EventResponse:
+      type: object
+      properties:
+        eventId:
+          type: string
+          example: "abcdef123456"
+        htmlLink:
+          type: string
+          example: "https://calendar.google.com/event?eid=abcdef123456"
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
